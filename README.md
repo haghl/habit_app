@@ -1,97 +1,84 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 🏃‍♂️ 습관 추적 앱 (Habit Tracker)
 
-# Getting Started
+간단하고 직관적인 습관 추적 앱입니다. 일상의 좋은 습관을 만들고 꾸준히 실천할 수 있도록 도와줍니다.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## ✨ 주요 기능
 
-## Step 1: Start Metro
+### 📝 습관 관리
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+- **습관 추가**: 새로운 습관을 쉽게 등록
+- **습관 수정**: 기존 습관의 이름, 카테고리, 빈도 변경
+- **습관 삭제**: 불필요한 습관 제거
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### 📅 다양한 빈도 설정
 
-```sh
-# Using npm
-npm start
+- **매일**: 매일 실행하는 습관
+- **매주**: 특정 요일에만 실행 (복수 선택 가능)
+- **매달**: 매달 특정 일에만 실행 (복수 선택 가능)
+- **맞춤**: 원하는 특정 날짜들에만 실행
 
-# OR using Yarn
-yarn start
+### 🎯 카테고리 분류
+
+- **건강**: 건강 관련 습관
+- **운동**: 운동 관련 습관
+- **공부**: 학습 관련 습관
+- **생활**: 생활 습관
+- **업무**: 업무 관련 습관
+- **기타**: 기타 습관
+
+### 📊 진행 상황 추적
+
+- **달력 뷰**: 월별 습관 완료 현황을 한눈에 확인
+- **일별 통계**: 전체/미완료/완료 습관 수 표시
+- **완료율 시각화**: 색상으로 구분된 완료율 표시
+
+## 🛠️ 기술 스택
+
+- **React Native**: 크로스 플랫폼 모바일 앱 개발
+- **TypeScript**: 타입 안정성
+- **Zustand**: 상태 관리
+- **AsyncStorage**: 로컬 데이터 저장
+- **react-native-calendars**: 캘린더 UI
+- **dayjs**: 날짜 처리
+
+## 📱 화면 구성
+
+### 🏠 홈 화면
+
+- 월별 캘린더와 습관 완료 현황
+- 선택한 날짜의 습관 목록
+- 습관 완료 체크 및 수정 기능
+
+### ➕ 습관 생성/수정 화면
+
+- 습관 이름 입력
+- 카테고리 선택
+- 빈도 설정 (매일/매주/매달/맞춤)
+- 세부 스케줄 설정
+
+## 🚀 설치 및 실행
+
+```bash
+# 의존성 설치
+yarn
+
+# iOS 의존성 설치
+cd ios && pod install && cd ..
 ```
 
-## Step 2: Build and run your app
+### 실행
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
+```bash
+# Android
 yarn android
-```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
+# iOS
 yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### 개발 스크립트
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+```bash
+# Metro 서버 시작
+yarn start
+```

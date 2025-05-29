@@ -1,6 +1,6 @@
 import useNavigate from '@hooks/logic/useNavigate';
 import {useHabitStore} from '@/store/useHabitStore';
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,6 @@ import {IHabit} from '@/types/habit';
 import {
   WEEK_DAYS,
   HABIT_CATEGORIES,
-  COMMON_EMOJIS,
   FREQUENCY_OPTIONS,
   COLORS,
   CALENDAR_THEME,
@@ -36,98 +35,132 @@ const CreateRoutineScreen = ({route}: CreateRoutineScreenProps) => {
   const navigate = useNavigate();
   const {addHabit, updateHabit, deleteHabit} = useHabitStore();
 
-  // 수정할 습관이 있는지 확인
   const editingHabit = route.params?.habit;
-  const isEditing = !!editingHabit;
+  const isEditingMode = !!editingHabit;
 
-  const nameInputRef = useRef<TextInput>(null);
+  const habitNameInputRef = useRef<TextInput>(null);
 
-  // 수정 모드일 때는 기존 데이터로 초기화, 생성 모드일 때는 기본값
   const [habitName, setHabitName] = useState(editingHabit?.name || '');
-  const [selectedEmoji, setSelectedEmoji] = useState(
-    editingHabit?.emoji || '💪',
-  );
-  const [frequency, setFrequency] = useState<
+  const [selectedFrequency, setSelectedFrequency] = useState<
     'daily' | 'weekly' | 'monthly' | 'custom'
   >(editingHabit?.frequency || 'daily');
-  const [weeklyDays, setWeeklyDays] = useState<number[]>(
+  const [selectedWeeklyDays, setSelectedWeeklyDays] = useState<number[]>(
     editingHabit?.customDays || [],
   );
-  const [monthlyDays, setMonthlyDays] = useState<number[]>(
+  const [selectedMonthlyDays, setSelectedMonthlyDays] = useState<number[]>(
     editingHabit?.monthlyDays || [],
   );
-  const [customDates, setCustomDates] = useState<string[]>(
+  const [selectedCustomDates, setSelectedCustomDates] = useState<string[]>(
     editingHabit?.customDates || [],
   );
   const [selectedCategory, setSelectedCategory] = useState<
     'health' | 'exercise' | 'study' | 'lifestyle' | 'work' | 'other'
   >(editingHabit?.category || 'health');
+  const [isCalendarModalVisible, setIsCalendarModalVisible] = useState(false);
 
-  const [showCalendar, setShowCalendar] = useState(false);
-
+  /**
+   * 컴포넌트 마운트 시 이름 입력 필드에 포커스
+   */
   useEffect(() => {
-    const timer = setTimeout(() => {
-      nameInputRef.current?.focus();
+    const focusTimer = setTimeout(() => {
+      habitNameInputRef.current?.focus();
     }, 300);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(focusTimer);
   }, []);
 
-  // common.ts의 상수들 사용
-  const weekDays = WEEK_DAYS;
-  const categories = HABIT_CATEGORIES;
-  const commonEmojis = COMMON_EMOJIS;
+  const availableWeekDays = useMemo(() => WEEK_DAYS, []);
+  const availableCategories = useMemo(() => HABIT_CATEGORIES, []);
+  const availableFrequencyOptions = useMemo(() => FREQUENCY_OPTIONS, []);
 
-  const handleWeeklyDayToggle = (dayValue: number) => {
-    setWeeklyDays(prev =>
-      prev.includes(dayValue)
-        ? prev.filter(day => day !== dayValue)
-        : [...prev, dayValue],
+  /**
+   * 주간 요일 선택/해제 토글 핸들러
+   * @param dayValue - 토글할 요일 값 (0: 일요일, 1: 월요일, ...)
+   */
+  const handleWeeklyDayToggle = useCallback((dayValue: number) => {
+    setSelectedWeeklyDays(previousDays =>
+      previousDays.includes(dayValue)
+        ? previousDays.filter(day => day !== dayValue)
+        : [...previousDays, dayValue],
     );
-  };
+  }, []);
 
-  const handleMonthlyDayToggle = (day: number) => {
-    setMonthlyDays(prev =>
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day],
+  /**
+   * 월간 일자 선택/해제 토글 핸들러
+   * @param dayNumber - 토글할 일자 (1-31)
+   */
+  const handleMonthlyDayToggle = useCallback((dayNumber: number) => {
+    setSelectedMonthlyDays(previousDays =>
+      previousDays.includes(dayNumber)
+        ? previousDays.filter(day => day !== dayNumber)
+        : [...previousDays, dayNumber],
     );
-  };
+  }, []);
 
-  const handleDateSelect = (day: any) => {
-    const dateString = day.dateString;
-    setCustomDates(prev =>
-      prev.includes(dateString)
-        ? prev.filter(date => date !== dateString)
-        : [...prev, dateString],
+  /**
+   * 캘린더에서 날짜 선택/해제 핸들러
+   * @param day - 선택된 날짜 객체
+   */
+  const handleCustomDateSelect = useCallback((day: any) => {
+    const selectedDateString = day.dateString;
+    setSelectedCustomDates(previousDates =>
+      previousDates.includes(selectedDateString)
+        ? previousDates.filter(date => date !== selectedDateString)
+        : [...previousDates, selectedDateString],
     );
-  };
+  }, []);
 
-  const getMarkedDates = () => {
-    const marked: any = {};
-    customDates.forEach(date => {
-      marked[date] = {
-        selected: true,
-        selectedColor: '#3498db',
-      };
-    });
-    return marked;
-  };
+  /**
+   * 특정 커스텀 날짜 제거 핸들러
+   * @param dateToRemove - 제거할 날짜 문자열
+   */
+  const handleCustomDateRemove = useCallback((dateToRemove: string) => {
+    setSelectedCustomDates(previousDates =>
+      previousDates.filter(date => date !== dateToRemove),
+    );
+  }, []);
 
-  const handleSave = async () => {
+  /**
+   * 모든 커스텀 날짜 초기화 핸들러
+   */
+  const handleCustomDatesReset = useCallback(() => {
+    setSelectedCustomDates([]);
+  }, []);
+
+  /**
+   * 캘린더 모달 열기 핸들러
+   */
+  const handleCalendarModalOpen = useCallback(() => {
+    setIsCalendarModalVisible(true);
+  }, []);
+
+  /**
+   * 캘린더 모달 닫기 핸들러
+   */
+  const handleCalendarModalClose = useCallback(() => {
+    setIsCalendarModalVisible(false);
+  }, []);
+
+  /**
+   * 습관 저장 핸들러 (생성 또는 수정)
+   */
+  const handleHabitSave = useCallback(async () => {
+    // 입력 유효성 검사
     if (!habitName.trim()) {
       Alert.alert('오류', '습관 이름을 입력해주세요.');
       return;
     }
 
-    if (frequency === 'weekly' && weeklyDays.length === 0) {
+    if (selectedFrequency === 'weekly' && selectedWeeklyDays.length === 0) {
       Alert.alert('오류', '매주 빈도에서는 최소 하나의 요일을 선택해주세요.');
       return;
     }
 
-    if (frequency === 'monthly' && monthlyDays.length === 0) {
+    if (selectedFrequency === 'monthly' && selectedMonthlyDays.length === 0) {
       Alert.alert('오류', '매달 빈도에서는 최소 하나의 일을 선택해주세요.');
       return;
     }
 
-    if (frequency === 'custom' && customDates.length === 0) {
+    if (selectedFrequency === 'custom' && selectedCustomDates.length === 0) {
       Alert.alert('오류', '맞춤 빈도에서는 최소 하나의 날짜를 선택해주세요.');
       return;
     }
@@ -135,15 +168,17 @@ const CreateRoutineScreen = ({route}: CreateRoutineScreenProps) => {
     try {
       const habitData = {
         name: habitName.trim(),
-        emoji: selectedEmoji,
-        frequency,
-        customDays: frequency === 'weekly' ? weeklyDays : undefined,
-        monthlyDays: frequency === 'monthly' ? monthlyDays : undefined,
-        customDates: frequency === 'custom' ? customDates : undefined,
+        frequency: selectedFrequency,
+        customDays:
+          selectedFrequency === 'weekly' ? selectedWeeklyDays : undefined,
+        monthlyDays:
+          selectedFrequency === 'monthly' ? selectedMonthlyDays : undefined,
+        customDates:
+          selectedFrequency === 'custom' ? selectedCustomDates : undefined,
         category: selectedCategory,
       };
 
-      if (isEditing && editingHabit) {
+      if (isEditingMode && editingHabit) {
         // 수정 모드
         await updateHabit(editingHabit.id, habitData);
         Alert.alert('성공', '습관이 수정되었습니다!', [
@@ -157,15 +192,29 @@ const CreateRoutineScreen = ({route}: CreateRoutineScreenProps) => {
         ]);
       }
     } catch (error) {
-      console.error('습관 저장 실패:', error);
       Alert.alert(
         '오류',
-        `습관 ${isEditing ? '수정' : '추가'}에 실패했습니다.`,
+        `습관 ${isEditingMode ? '수정' : '추가'}에 실패했습니다.`,
       );
     }
-  };
+  }, [
+    habitName,
+    selectedFrequency,
+    selectedWeeklyDays,
+    selectedMonthlyDays,
+    selectedCustomDates,
+    selectedCategory,
+    isEditingMode,
+    editingHabit,
+    updateHabit,
+    addHabit,
+    navigate,
+  ]);
 
-  const handleDelete = () => {
+  /**
+   * 습관 삭제 핸들러
+   */
+  const handleHabitDelete = useCallback(() => {
     if (!editingHabit) return;
 
     Alert.alert(
@@ -183,36 +232,210 @@ const CreateRoutineScreen = ({route}: CreateRoutineScreenProps) => {
                 {text: '확인', onPress: () => navigate.goBack()},
               ]);
             } catch (error) {
-              console.error('습관 삭제 실패:', error);
               Alert.alert('오류', '습관 삭제에 실패했습니다.');
             }
           },
         },
       ],
     );
-  };
+  }, [editingHabit, deleteHabit, navigate]);
+
+  /**
+   * 화면 뒤로가기 핸들러
+   */
+  const handleScreenGoBack = useCallback(() => {
+    navigate.goBack();
+  }, [navigate]);
+
+  /**
+   * 캘린더에 표시할 마킹 데이터 생성 (메모이제이션)
+   * @returns 선택된 날짜들의 마킹 객체
+   */
+  const calendarMarkedDates = useMemo(() => {
+    const markedDates: any = {};
+    selectedCustomDates.forEach(date => {
+      markedDates[date] = {
+        selected: true,
+        selectedColor: '#3498db',
+      };
+    });
+    return markedDates;
+  }, [selectedCustomDates]);
+
+  /**
+   * 카테고리 선택 버튼을 렌더링하는 함수
+   * @param category - 렌더링할 카테고리 객체
+   * @returns 카테고리 버튼 JSX
+   */
+  const renderCategoryButton = useCallback(
+    (category: any) => (
+      <TouchableOpacity
+        key={category.key}
+        style={[
+          styles.categoryButton,
+          {borderColor: category.color},
+          selectedCategory === category.key && {
+            backgroundColor: category.color,
+          },
+        ]}
+        onPress={() => setSelectedCategory(category.key as any)}>
+        <Text
+          style={[
+            styles.categoryText,
+            selectedCategory === category.key && styles.selectedCategoryText,
+          ]}>
+          {category.label}
+        </Text>
+      </TouchableOpacity>
+    ),
+    [selectedCategory],
+  );
+
+  /**
+   * 빈도 옵션 버튼을 렌더링하는 함수
+   * @param option - 렌더링할 빈도 옵션 객체
+   * @returns 빈도 옵션 버튼 JSX
+   */
+  const renderFrequencyOption = useCallback(
+    (option: any) => (
+      <TouchableOpacity
+        key={option.key}
+        style={[
+          styles.frequencyOption,
+          selectedFrequency === option.key && styles.selectedOption,
+        ]}
+        onPress={() => setSelectedFrequency(option.key as any)}>
+        <View style={styles.frequencyContent}>
+          <Text
+            style={[
+              styles.frequencyText,
+              selectedFrequency === option.key && styles.selectedText,
+            ]}>
+            {option.label}
+          </Text>
+          <Text
+            style={[
+              styles.frequencyDesc,
+              selectedFrequency === option.key && styles.selectedDesc,
+            ]}>
+            {option.description}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.radio,
+            selectedFrequency === option.key && styles.radioSelected,
+          ]}
+        />
+      </TouchableOpacity>
+    ),
+    [selectedFrequency],
+  );
+
+  /**
+   * 주간 요일 선택 버튼을 렌더링하는 함수
+   * @param day - 렌더링할 요일 객체
+   * @returns 요일 선택 버튼 JSX
+   */
+  const renderWeeklyDayButton = useCallback(
+    (day: any) => (
+      <TouchableOpacity
+        key={day.value}
+        style={[
+          styles.dayButton,
+          selectedWeeklyDays.includes(day.value) && styles.selectedDay,
+        ]}
+        onPress={() => handleWeeklyDayToggle(day.value)}>
+        <Text
+          style={[
+            styles.dayText,
+            selectedWeeklyDays.includes(day.value) && styles.selectedDayText,
+          ]}>
+          {day.label}
+        </Text>
+      </TouchableOpacity>
+    ),
+    [selectedWeeklyDays, handleWeeklyDayToggle],
+  );
+
+  /**
+   * 월간 일자 선택 버튼을 렌더링하는 함수
+   * @param dayNumber - 렌더링할 일자 (1-31)
+   * @returns 일자 선택 버튼 JSX
+   */
+  const renderMonthlyDayButton = useCallback(
+    (dayNumber: number) => (
+      <TouchableOpacity
+        key={dayNumber}
+        style={[
+          styles.monthlyDayButton,
+          selectedMonthlyDays.includes(dayNumber) && styles.selectedMonthlyDay,
+        ]}
+        onPress={() => handleMonthlyDayToggle(dayNumber)}>
+        <Text
+          style={[
+            styles.monthlyDayText,
+            selectedMonthlyDays.includes(dayNumber) &&
+              styles.selectedMonthlyDayText,
+          ]}>
+          {dayNumber}
+        </Text>
+      </TouchableOpacity>
+    ),
+    [selectedMonthlyDays, handleMonthlyDayToggle],
+  );
+
+  /**
+   * 선택된 커스텀 날짜 칩을 렌더링하는 함수
+   * @param date - 렌더링할 날짜 문자열
+   * @returns 날짜 칩 JSX
+   */
+  const renderSelectedDateChip = useCallback(
+    (date: string) => (
+      <View key={date} style={styles.selectedDateChip}>
+        <Text style={styles.selectedDateText}>
+          {dayjs(date).format('MM/DD')}
+        </Text>
+        <TouchableOpacity onPress={() => handleCustomDateRemove(date)}>
+          <Text style={styles.removeDate}>×</Text>
+        </TouchableOpacity>
+      </View>
+    ),
+    [handleCustomDateRemove],
+  );
+
+  /**
+   * 월간 일자 배열 생성 (메모이제이션)
+   */
+  const monthlyDayNumbers = useMemo(
+    () => Array.from({length: 31}, (_, i) => i + 1),
+    [],
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
+      {/* 헤더 섹션 */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigate.goBack()}>
+        <TouchableOpacity onPress={handleScreenGoBack}>
           <Text style={styles.cancelButton}>취소</Text>
         </TouchableOpacity>
         <Text style={styles.title}>
-          {isEditing ? '습관 수정' : '새 습관 추가'}
+          {isEditingMode ? '습관 수정' : '새 습관 추가'}
         </Text>
-        <TouchableOpacity onPress={handleSave}>
+        <TouchableOpacity onPress={handleHabitSave}>
           <Text style={styles.saveButton}>저장</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 습관 이름 */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}>
+        {/* 습관 이름 입력 섹션 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>습관 이름</Text>
           <TextInput
-            ref={nameInputRef}
+            ref={habitNameInputRef}
             style={styles.textInput}
             value={habitName}
             onChangeText={setHabitName}
@@ -224,178 +447,62 @@ const CreateRoutineScreen = ({route}: CreateRoutineScreenProps) => {
           />
         </View>
 
-        {/* 이모지 선택 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>이모지 선택</Text>
-          <View style={styles.emojiContainer}>
-            {commonEmojis.map(emoji => (
-              <TouchableOpacity
-                key={emoji}
-                style={[
-                  styles.emojiButton,
-                  selectedEmoji === emoji && styles.selectedEmoji,
-                ]}
-                onPress={() => setSelectedEmoji(emoji)}>
-                <Text style={styles.emojiText}>{emoji}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* 카테고리 선택 */}
+        {/* 카테고리 선택 섹션 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>카테고리</Text>
           <View style={styles.categoryContainer}>
-            {categories.map(category => (
-              <TouchableOpacity
-                key={category.key}
-                style={[
-                  styles.categoryButton,
-                  {borderColor: category.color},
-                  selectedCategory === category.key && {
-                    backgroundColor: category.color,
-                  },
-                ]}
-                onPress={() => setSelectedCategory(category.key as any)}>
-                <Text style={styles.categoryEmoji}>{category.emoji}</Text>
-                <Text
-                  style={[
-                    styles.categoryText,
-                    selectedCategory === category.key &&
-                      styles.selectedCategoryText,
-                  ]}>
-                  {category.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {availableCategories.map(renderCategoryButton)}
           </View>
         </View>
 
-        {/* 빈도 설정 */}
+        {/* 빈도 설정 섹션 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>빈도</Text>
-
-          {FREQUENCY_OPTIONS.map(option => (
-            <TouchableOpacity
-              key={option.key}
-              style={[
-                styles.frequencyOption,
-                frequency === option.key && styles.selectedOption,
-              ]}
-              onPress={() => setFrequency(option.key as any)}>
-              <View style={styles.frequencyContent}>
-                <Text
-                  style={[
-                    styles.frequencyText,
-                    frequency === option.key && styles.selectedText,
-                  ]}>
-                  {option.label}
-                </Text>
-                <Text
-                  style={[
-                    styles.frequencyDesc,
-                    frequency === option.key && styles.selectedDesc,
-                  ]}>
-                  {option.description}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.radio,
-                  frequency === option.key && styles.radioSelected,
-                ]}
-              />
-            </TouchableOpacity>
-          ))}
+          {availableFrequencyOptions.map(renderFrequencyOption)}
         </View>
 
-        {/* 매주 요일 선택 */}
-        {frequency === 'weekly' && (
+        {/* 매주 요일 선택 섹션 */}
+        {selectedFrequency === 'weekly' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>요일 선택 (복수 선택 가능)</Text>
             <View style={styles.daysContainer}>
-              {weekDays.map(day => (
-                <TouchableOpacity
-                  key={day.value}
-                  style={[
-                    styles.dayButton,
-                    weeklyDays.includes(day.value) && styles.selectedDay,
-                  ]}
-                  onPress={() => handleWeeklyDayToggle(day.value)}>
-                  <Text
-                    style={[
-                      styles.dayText,
-                      weeklyDays.includes(day.value) && styles.selectedDayText,
-                    ]}>
-                    {day.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {availableWeekDays.map(renderWeeklyDayButton)}
             </View>
           </View>
         )}
 
-        {/* 매달 일 선택 */}
-        {frequency === 'monthly' && (
+        {/* 매달 일자 선택 섹션 */}
+        {selectedFrequency === 'monthly' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               매달 실행할 일 선택 (복수 선택 가능)
             </Text>
             <View style={styles.monthlyDaysContainer}>
-              {Array.from({length: 31}, (_, i) => i + 1).map(day => (
-                <TouchableOpacity
-                  key={day}
-                  style={[
-                    styles.monthlyDayButton,
-                    monthlyDays.includes(day) && styles.selectedMonthlyDay,
-                  ]}
-                  onPress={() => handleMonthlyDayToggle(day)}>
-                  <Text
-                    style={[
-                      styles.monthlyDayText,
-                      monthlyDays.includes(day) &&
-                        styles.selectedMonthlyDayText,
-                    ]}>
-                    {day}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {monthlyDayNumbers.map(renderMonthlyDayButton)}
             </View>
           </View>
         )}
 
-        {/* 맞춤 날짜 선택 */}
-        {frequency === 'custom' && (
+        {/* 맞춤 날짜 선택 섹션 */}
+        {selectedFrequency === 'custom' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>특정 날짜 선택</Text>
             <TouchableOpacity
               style={styles.calendarButton}
-              onPress={() => setShowCalendar(true)}>
+              onPress={handleCalendarModalOpen}>
               <Text style={styles.calendarButtonText}>
-                달력에서 날짜 선택 ({customDates.length}개 선택됨)
+                달력에서 날짜 선택 ({selectedCustomDates.length}개 선택됨)
               </Text>
             </TouchableOpacity>
 
-            {customDates.length > 0 && (
+            {selectedCustomDates.length > 0 && (
               <View style={styles.selectedDatesContainer}>
                 <Text style={styles.selectedDatesTitle}>선택된 날짜들:</Text>
                 <View style={styles.selectedDatesList}>
-                  {customDates.slice(0, 5).map(date => (
-                    <View key={date} style={styles.selectedDateChip}>
-                      <Text style={styles.selectedDateText}>
-                        {dayjs(date).format('MM/DD')}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() =>
-                          setCustomDates(prev => prev.filter(d => d !== date))
-                        }>
-                        <Text style={styles.removeDate}>×</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  {customDates.length > 5 && (
+                  {selectedCustomDates.slice(0, 5).map(renderSelectedDateChip)}
+                  {selectedCustomDates.length > 5 && (
                     <Text style={styles.moreDates}>
-                      +{customDates.length - 5}개 더
+                      +{selectedCustomDates.length - 5}개 더
                     </Text>
                   )}
                 </View>
@@ -404,26 +511,12 @@ const CreateRoutineScreen = ({route}: CreateRoutineScreenProps) => {
           </View>
         )}
 
-        {/* 팁 섹션 */}
-        <View style={styles.tipContainer}>
-          <Text style={styles.tipTitle}>💡 빈도 설정 가이드</Text>
-          <Text style={styles.tipText}>
-            • <Text style={{fontWeight: 'bold'}}>매일</Text>: 물 마시기, 양치질
-            등 일상적인 습관{'\n'}•{' '}
-            <Text style={{fontWeight: 'bold'}}>매주</Text>: 운동, 청소 등
-            주기적인 습관{'\n'}• <Text style={{fontWeight: 'bold'}}>매달</Text>:
-            정기검진, 리뷰 등 월단위 습관{'\n'}•{' '}
-            <Text style={{fontWeight: 'bold'}}>맞춤</Text>: 특별한 날짜나 이벤트
-            관련 습관
-          </Text>
-        </View>
-
-        {/* 삭제 버튼 - 수정 모드일 때만 표시 */}
-        {isEditing && (
+        {/* 삭제 버튼 섹션 - 수정 모드일 때만 표시 */}
+        {isEditingMode && (
           <View style={styles.deleteSection}>
             <TouchableOpacity
               style={styles.deleteButton}
-              onPress={handleDelete}>
+              onPress={handleHabitDelete}>
               <Text style={styles.deleteButtonText}>🗑️ 습관 삭제</Text>
             </TouchableOpacity>
             <Text style={styles.deleteWarning}>
@@ -435,23 +528,23 @@ const CreateRoutineScreen = ({route}: CreateRoutineScreenProps) => {
 
       {/* 달력 모달 */}
       <Modal
-        visible={showCalendar}
+        visible={isCalendarModalVisible}
         animationType="slide"
         presentationStyle="pageSheet">
         <SafeAreaView style={styles.calendarModal}>
           <View style={styles.calendarHeader}>
-            <TouchableOpacity onPress={() => setShowCalendar(false)}>
+            <TouchableOpacity onPress={handleCalendarModalClose}>
               <Text style={styles.calendarDone}>완료</Text>
             </TouchableOpacity>
             <Text style={styles.calendarTitle}>날짜 선택</Text>
-            <TouchableOpacity onPress={() => setCustomDates([])}>
+            <TouchableOpacity onPress={handleCustomDatesReset}>
               <Text style={styles.calendarClear}>전체 해제</Text>
             </TouchableOpacity>
           </View>
 
           <Calendar
-            onDayPress={handleDateSelect}
-            markedDates={getMarkedDates()}
+            onDayPress={handleCustomDateSelect}
+            markedDates={calendarMarkedDates}
             markingType="dot"
             minDate={dayjs().format('YYYY-MM-DD')}
             theme={CALENDAR_THEME}
@@ -459,8 +552,8 @@ const CreateRoutineScreen = ({route}: CreateRoutineScreenProps) => {
 
           <View style={styles.calendarFooter}>
             <Text style={styles.calendarHelp}>
-              날짜를 터치하여 선택/해제할 수 있습니다. {customDates.length}개
-              선택됨
+              날짜를 터치하여 선택/해제할 수 있습니다.{' '}
+              {selectedCustomDates.length}개 선택됨
             </Text>
           </View>
         </SafeAreaView>
@@ -502,6 +595,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  contentContainer: {
+    paddingBottom: 30,
+  },
   section: {
     marginTop: 25,
   },
@@ -520,29 +616,6 @@ const styles = StyleSheet.create({
     borderColor: '#ecf0f1',
     color: '#2c3e50',
   },
-  emojiContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  emojiButton: {
-    width: '18%',
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#ecf0f1',
-  },
-  selectedEmoji: {
-    borderColor: '#3498db',
-    backgroundColor: '#ebf3fd',
-  },
-  emojiText: {
-    fontSize: 24,
-  },
   categoryContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -550,17 +623,13 @@ const styles = StyleSheet.create({
   },
   categoryButton: {
     width: '48%',
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 2,
-  },
-  categoryEmoji: {
-    fontSize: 20,
-    marginRight: 10,
   },
   categoryText: {
     fontSize: 16,
@@ -760,26 +829,7 @@ const styles = StyleSheet.create({
     color: '#7f8c8d',
     textAlign: 'center',
   },
-  tipContainer: {
-    backgroundColor: '#fff3cd',
-    padding: 20,
-    borderRadius: 12,
-    marginTop: 30,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: '#ffeaa7',
-  },
-  tipTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#856404',
-    marginBottom: 10,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#856404',
-    lineHeight: 20,
-  },
+
   deleteSection: {
     marginTop: 40,
     marginBottom: 30,

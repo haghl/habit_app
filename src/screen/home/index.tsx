@@ -1,4 +1,4 @@
-import {CALENDAR_THEME, getCategoryColor} from '@/constants/common';
+import {CALENDAR_THEME, HABIT_CATEGORIES} from '@/constants/common';
 import {useHabitStore} from '@/store/useHabitStore';
 import useNavigate from '@hooks/logic/useNavigate';
 import dayjs from 'dayjs';
@@ -15,38 +15,41 @@ import {
 import {Calendar} from 'react-native-calendars';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
+/**
+ * 카테고리별 색상을 반환하는 함수
+ * @param category - 습관 카테고리
+ * @returns 해당 카테고리의 색상 코드
+ */
+const getCategoryColor = (category: string): string => {
+  const categoryColors: {[key: string]: string} = {
+    health: '#4CAF50',
+    exercise: '#FF5722',
+    study: '#2196F3',
+    lifestyle: '#9C27B0',
+    work: '#FF9800',
+    other: '#607D8B',
+  };
+  return categoryColors[category] || '#607D8B';
+};
+
 const HomeScreen = () => {
   const navigate = useNavigate();
-  const {habits, loading, loadHabits, toggleHabitCompletion, getHabitStreak} =
-    useHabitStore();
+  const {habits, loading, loadHabits, toggleHabitCompletion} = useHabitStore();
 
-  // selectedDate를 useState로 관리
   const [selectedDate, setSelectedDate] = useState(
     dayjs().format('YYYY-MM-DD'),
   );
-  const [showAllHabits, setShowAllHabits] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  useEffect(() => {
-    const initializeData = async () => {
-      try {
-        await loadHabits();
-        setDataLoaded(true);
-        console.log('✅ 초기 데이터 로드 완료');
-      } catch (error) {
-        console.error('❌ 초기 데이터 로드 실패:', error);
-        setDataLoaded(true);
-      }
-    };
-
-    initializeData();
-  }, [loadHabits]);
-
-  // 로컬에서 날짜별 습관 필터링
-  const getHabitsForDate = useCallback(
+  /**
+   * 특정 날짜에 해당하는 습관들을 필터링하여 반환
+   * @param date - 조회할 날짜 (YYYY-MM-DD 형식)
+   * @returns 해당 날짜에 실행해야 하는 습관 배열
+   */
+  const getHabitsForSelectedDate = useCallback(
     (date: string) => {
-      const dayOfWeek = dayjs(date).day();
-      const dayOfMonth = dayjs(date).date();
+      const dayOfWeek = dayjs(date).day(); // 0: 일요일, 1: 월요일, ...
+      const dayOfMonth = dayjs(date).date(); // 1-31
       const dateString = dayjs(date).format('YYYY-MM-DD');
 
       return habits.filter(habit => {
@@ -67,10 +70,14 @@ const HomeScreen = () => {
     [habits],
   );
 
-  // 로컬에서 일별 진행상황 계산
-  const getDayProgress = useCallback(
+  /**
+   * 특정 날짜의 습관 진행 상황을 계산
+   * @param date - 조회할 날짜 (YYYY-MM-DD 형식)
+   * @returns 해당 날짜의 진행 상황 객체
+   */
+  const calculateDayProgress = useCallback(
     (date: string) => {
-      const dayHabits = getHabitsForDate(date);
+      const dayHabits = getHabitsForSelectedDate(date);
       const completedHabits = dayHabits.filter(habit =>
         habit.completedDates.includes(date),
       );
@@ -85,23 +92,258 @@ const HomeScreen = () => {
         })),
       };
     },
-    [getHabitsForDate],
+    [getHabitsForSelectedDate],
   );
 
-  // 로컬에서 월별 진행상황 계산
-  const getMonthlyProgress = useCallback(
+  /**
+   * 특정 월의 모든 날짜에 대한 진행 상황을 계산
+   * @param year - 연도
+   * @param month - 월 (1-12)
+   * @returns 해당 월의 모든 날짜별 진행 상황 객체
+   */
+  const calculateMonthlyProgress = useCallback(
     (year: number, month: number) => {
       const daysInMonth = dayjs(`${year}-${month}`).daysInMonth();
       const progress: {[date: string]: any} = {};
 
       for (let day = 1; day <= daysInMonth; day++) {
         const date = dayjs(`${year}-${month}-${day}`).format('YYYY-MM-DD');
-        progress[date] = getDayProgress(date);
+        progress[date] = calculateDayProgress(date);
       }
 
       return progress;
     },
-    [getDayProgress],
+    [calculateDayProgress],
+  );
+
+  /**
+   * 선택된 날짜의 습관 목록 (메모이제이션)
+   */
+  const selectedDateHabits = useMemo(() => {
+    return getHabitsForSelectedDate(selectedDate);
+  }, [selectedDate, getHabitsForSelectedDate]);
+
+  /**
+   * 선택된 날짜의 진행 상황 (메모이제이션)
+   */
+  const selectedDateProgress = useMemo(() => {
+    return calculateDayProgress(selectedDate);
+  }, [selectedDate, calculateDayProgress]);
+
+  /**
+   * 현재 월의 모든 날짜별 진행 상황 (메모이제이션)
+   */
+  const currentMonthProgress = useMemo(() => {
+    const currentDate = dayjs(selectedDate);
+    return calculateMonthlyProgress(
+      currentDate.year(),
+      currentDate.month() + 1,
+    );
+  }, [selectedDate, calculateMonthlyProgress]);
+
+  /**
+   * 캘린더에 표시할 마킹 데이터 생성 (메모이제이션)
+   */
+  const calendarMarkedDates = useMemo(() => {
+    return Object.keys(currentMonthProgress).reduce((acc, date) => {
+      const progress = currentMonthProgress[date];
+
+      if (progress && progress.totalHabits > 0) {
+        const completionRate = progress.completedHabits / progress.totalHabits;
+        let backgroundColor = '#f8f9fa';
+        let textColor = '#2c3e50';
+
+        // 완료율에 따른 색상 결정
+        if (completionRate === 1) {
+          backgroundColor = '#4CAF50'; // 완료
+          textColor = '#fff';
+        } else if (completionRate >= 0.5) {
+          backgroundColor = '#FF9800'; // 부분 완료
+          textColor = '#fff';
+        } else if (completionRate > 0) {
+          backgroundColor = '#FFC107'; // 일부 완료
+          textColor = '#000';
+        } else {
+          backgroundColor = '#F44336'; // 미완료
+          textColor = '#fff';
+        }
+
+        acc[date] = {
+          customStyles: {
+            container: {
+              backgroundColor,
+              borderRadius: 8,
+            },
+            text: {
+              color: textColor,
+              fontWeight: 'bold',
+            },
+          },
+        };
+      }
+
+      // 선택된 날짜 스타일 적용
+      if (date === selectedDate) {
+        acc[date] = {
+          ...acc[date],
+          selected: true,
+          selectedColor: '#2196F3',
+          selectedTextColor: '#fff',
+        };
+      }
+
+      return acc;
+    }, {} as any);
+  }, [currentMonthProgress, selectedDate]);
+
+  /**
+   * 오늘 날짜 마킹이 포함된 최종 캘린더 마킹 데이터 (메모이제이션)
+   */
+  const finalCalendarMarkedDates = useMemo(() => {
+    const today = dayjs().format('YYYY-MM-DD');
+    const markedDates = {...calendarMarkedDates};
+
+    // 오늘 날짜 마킹 추가
+    if (!markedDates[today]) {
+      markedDates[today] = {};
+    }
+    if (today !== selectedDate) {
+      markedDates[today] = {
+        ...markedDates[today],
+        marked: true,
+        dotColor: '#FF6B35',
+      };
+    }
+
+    return markedDates;
+  }, [calendarMarkedDates, selectedDate]);
+
+  /**
+   * 선택된 날짜의 습관 통계 (전체/미완료/완료) (메모이제이션)
+   */
+  const selectedDateStats = useMemo(() => {
+    const habitsForSelectedDate = getHabitsForSelectedDate(selectedDate);
+    const completedCount = habitsForSelectedDate.filter(habit =>
+      habit.completedDates.includes(selectedDate),
+    ).length;
+
+    const stats = {
+      total: habitsForSelectedDate.length,
+      incomplete: habitsForSelectedDate.length - completedCount,
+      completed: completedCount,
+    };
+
+    return stats;
+  }, [selectedDate, getHabitsForSelectedDate]);
+
+  /**
+   * 컴포넌트 마운트 시 습관 데이터 로딩
+   */
+  useEffect(() => {
+    const initializeHabitData = async () => {
+      try {
+        await loadHabits();
+        setDataLoaded(true);
+      } catch (error) {
+        setDataLoaded(true);
+      }
+    };
+
+    initializeHabitData();
+  }, [loadHabits]);
+
+  /**
+   * 습관 완료 상태 토글 핸들러
+   * @param habitId - 토글할 습관의 ID
+   */
+  const handleHabitToggle = useCallback(
+    async (habitId: string) => {
+      try {
+        await toggleHabitCompletion(habitId, selectedDate);
+      } catch (error) {
+        Alert.alert('오류', '습관 상태 변경에 실패했습니다.');
+      }
+    },
+    [toggleHabitCompletion, selectedDate],
+  );
+
+  /**
+   * 습관 수정 화면으로 이동하는 핸들러
+   * @param habit - 수정할 습관 객체
+   */
+  const handleHabitEdit = useCallback(
+    (habit: any) => {
+      navigate.push('createRoutineScreen', {habit});
+    },
+    [navigate],
+  );
+
+  /**
+   * 습관 추가 화면으로 이동하는 핸들러
+   */
+  const handleHabitCreate = useCallback(() => {
+    navigate.push('createRoutineScreen');
+  }, [navigate]);
+
+  /**
+   * 캘린더 날짜 선택 핸들러
+   * @param day - 선택된 날짜 객체
+   */
+  const handleDateSelect = useCallback((day: any) => {
+    setSelectedDate(day.dateString);
+  }, []);
+
+  /**
+   * 습관 아이템을 렌더링하는 함수
+   * @param habit - 렌더링할 습관 객체
+   * @returns 습관 아이템 JSX
+   */
+  const renderHabitItem = useCallback(
+    ({item: habit}: {item: any}) => {
+      const isCompleted = habit.completedDates.includes(selectedDate);
+
+      return (
+        <View style={styles.habitItem}>
+          <View
+            style={[
+              styles.categoryBar,
+              {backgroundColor: getCategoryColor(habit.category)},
+            ]}
+          />
+          <TouchableOpacity
+            style={[styles.habitContent, isCompleted && styles.completedHabit]}
+            onPress={() => handleHabitToggle(habit.id)}
+            activeOpacity={0.7}>
+            <View style={styles.habitInfo}>
+              <Text
+                style={[styles.habitName, isCompleted && styles.completedText]}>
+                {habit.name}
+              </Text>
+              <Text style={styles.habitCategory}>
+                {
+                  HABIT_CATEGORIES.find(cat => cat.key === habit.category)
+                    ?.label
+                }
+              </Text>
+            </View>
+
+            <View style={styles.habitActions}>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => handleHabitEdit(habit)}
+                activeOpacity={0.7}>
+                <Text style={styles.editButtonText}>편집</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.checkbox, isCompleted && styles.checkedBox]}>
+                {isCompleted && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    },
+    [selectedDate, handleHabitToggle, handleHabitEdit],
   );
 
   if (loading || !dataLoaded) {
@@ -114,255 +356,58 @@ const HomeScreen = () => {
     );
   }
 
-  // useMemo로 최적화하되 habits 배열 직접 의존
-  const selectedDateHabits = useMemo(() => {
-    console.log('🔄 selectedDateHabits 재계산:', selectedDate, habits.length);
-    return getHabitsForDate(selectedDate);
-  }, [selectedDate, getHabitsForDate]);
-
-  const dayProgress = useMemo(() => {
-    console.log('🔄 dayProgress 재계산:', selectedDate);
-    return getDayProgress(selectedDate);
-  }, [selectedDate, getDayProgress]);
-
-  const monthlyProgress = useMemo(() => {
-    const currentDate = dayjs(selectedDate);
-    console.log(
-      '🔄 monthlyProgress 재계산:',
-      currentDate.year(),
-      currentDate.month() + 1,
-    );
-    return getMonthlyProgress(currentDate.year(), currentDate.month() + 1);
-  }, [selectedDate, getMonthlyProgress]);
-
-  console.log('🔄 홈 화면 렌더링:', {
-    habitsCount: habits.length,
-    selectedDate,
-    selectedDateHabitsCount: selectedDateHabits.length,
-    dayProgress,
-  });
-
-  // react-native-calendars용 마킹 데이터 생성
-  const markedDates = useMemo(() => {
-    return Object.keys(monthlyProgress).reduce((acc, date) => {
-      const progress = monthlyProgress[date];
-
-      if (progress && progress.totalHabits > 0) {
-        const completionRate = progress.completedHabits / progress.totalHabits;
-        let color = '#f8f9fa';
-        let textColor = '#2c3e50';
-
-        if (completionRate === 1) {
-          color = '#4CAF50'; // 완료
-          textColor = '#fff';
-        } else if (completionRate >= 0.5) {
-          color = '#FF9800'; // 부분 완료
-          textColor = '#fff';
-        } else if (completionRate > 0) {
-          color = '#FFC107'; // 일부 완료
-          textColor = '#000';
-        } else {
-          color = '#F44336'; // 미완료
-          textColor = '#fff';
-        }
-
-        acc[date] = {
-          customStyles: {
-            container: {
-              backgroundColor: color,
-              borderRadius: 8,
-            },
-            text: {
-              color: textColor,
-              fontWeight: 'bold',
-            },
-          },
-        };
-      }
-
-      // 선택된 날짜 스타일
-      if (date === selectedDate) {
-        acc[date] = {
-          ...acc[date],
-          selected: true,
-          selectedColor: '#2196F3',
-          selectedTextColor: '#fff',
-        };
-      }
-
-      return acc;
-    }, {} as any);
-  }, [monthlyProgress, selectedDate]);
-
-  // 오늘 날짜 마킹
-  const finalMarkedDates = useMemo(() => {
-    const today = dayjs().format('YYYY-MM-DD');
-    const dates = {...markedDates};
-
-    if (!dates[today]) {
-      dates[today] = {};
-    }
-    if (today !== selectedDate) {
-      dates[today] = {
-        ...dates[today],
-        marked: true,
-        dotColor: '#FF6B35',
-      };
-    }
-
-    return dates;
-  }, [markedDates, selectedDate]);
-
-  const handleToggleCompletion = useCallback(
-    async (habitId: string) => {
-      console.log('🎯 습관 완료 토글 시작:', habitId, selectedDate);
-
-      try {
-        await toggleHabitCompletion(habitId, selectedDate);
-        console.log('✅ 습관 완료 상태 토글 완료:', habitId, selectedDate);
-      } catch (error) {
-        console.error('❌ 습관 완료 토글 실패:', error);
-        Alert.alert('오류', '습관 상태 변경에 실패했습니다.');
-      }
-    },
-    [toggleHabitCompletion, selectedDate],
-  );
-
-  const handleEditHabit = useCallback(
-    (habit: any) => {
-      navigate.push('createRoutineScreen', {habit});
-    },
-    [navigate],
-  );
-
-  const renderHabitItem = useCallback(
-    ({item: habit}: {item: any}) => {
-      const isCompleted = habit.completedDates.includes(selectedDate);
-      const streak = getHabitStreak(habit.id);
-
-      console.log('🎯 습관 렌더링:', {
-        habitId: habit.id,
-        habitName: habit.name,
-        selectedDate,
-        completedDates: habit.completedDates,
-        isCompleted,
-      });
-
-      return (
-        <View style={styles.habitItem}>
-          <View
-            style={[
-              styles.categoryBar,
-              {backgroundColor: getCategoryColor(habit.category)},
-            ]}
-          />
-          <TouchableOpacity
-            style={[styles.habitContent, isCompleted && styles.completedHabit]}
-            onPress={() => handleToggleCompletion(habit.id)}
-            activeOpacity={0.7}>
-            <View style={styles.habitInfo}>
-              <View style={styles.habitHeader}>
-                <Text style={styles.habitEmoji}>{habit.emoji}</Text>
-                <Text
-                  style={[
-                    styles.habitName,
-                    isCompleted && styles.completedText,
-                  ]}>
-                  {habit.name}
-                </Text>
-              </View>
-
-              {streak > 0 && (
-                <Text style={styles.streakText}>🔥 {streak}일 연속</Text>
-              )}
-            </View>
-
-            <View style={styles.habitActions}>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => handleEditHabit(habit)}
-                activeOpacity={0.7}>
-                <Text style={styles.editButtonText}>✏️</Text>
-              </TouchableOpacity>
-
-              <View style={[styles.checkbox, isCompleted && styles.checkedBox]}>
-                {isCompleted && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    },
-    [selectedDate, handleToggleCompletion, handleEditHabit, getHabitStreak],
-  );
-
-  const getProgressStats = () => {
-    const todayString = dayjs().format('YYYY-MM-DD');
-    const todayHabits = getHabitsForDate(todayString);
-    const completedToday = todayHabits.filter(h =>
-      h.completedDates.includes(todayString),
-    ).length;
-
-    return {
-      total: todayHabits.length,
-      incomplete: todayHabits.length - completedToday,
-      completed: completedToday,
-    };
-  };
-
-  const stats = getProgressStats();
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* React Native Calendars 사용 */}
+        {/* 캘린더 섹션 */}
         <View style={styles.calendarContainer}>
           <Calendar
             current={selectedDate}
-            onDayPress={day => setSelectedDate(day.dateString)}
-            markedDates={finalMarkedDates}
+            onDayPress={handleDateSelect}
+            markedDates={finalCalendarMarkedDates}
             markingType={'custom'}
             theme={CALENDAR_THEME}
             style={styles.calendar}
             hideExtraDays={true}
-            firstDay={0}
+            firstDay={0} // 일요일부터 시작
             showWeekNumbers={false}
             disableMonthChange={false}
             enableSwipeMonths={true}
           />
         </View>
 
-        {/* 선택된 날짜 정보 */}
+        {/* 선택된 날짜 정보 섹션 */}
         <View style={styles.dateHeader}>
           <View style={styles.dateInfo}>
             <Text style={styles.selectedDateText}>
               {dayjs(selectedDate).format('M월 D일 dddd')}
             </Text>
-            <TouchableOpacity onPress={() => setShowAllHabits(!showAllHabits)}>
-              <Text style={styles.progressText}>
-                {dayProgress.completedHabits}/{dayProgress.totalHabits}
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.progressText}>
+              {selectedDateProgress.completedHabits}/
+              {selectedDateProgress.totalHabits}
+            </Text>
           </View>
         </View>
 
-        {/* 카테고리 통계 */}
+        {/* 통계 섹션 */}
         <View style={styles.statsContainer}>
           <View style={[styles.statItem, {backgroundColor: '#34495e'}]}>
-            <Text style={styles.statNumber}>{stats.total}</Text>
+            <Text style={styles.statNumber}>{selectedDateStats.total}</Text>
             <Text style={styles.statLabel}>전체</Text>
           </View>
           <View style={[styles.statItem, {backgroundColor: '#e67e22'}]}>
-            <Text style={styles.statNumber}>{stats.incomplete}</Text>
+            <Text style={styles.statNumber}>
+              {selectedDateStats.incomplete}
+            </Text>
             <Text style={styles.statLabel}>미완료</Text>
           </View>
           <View style={[styles.statItem, styles.completedStat]}>
-            <Text style={styles.statNumber}>{stats.completed}</Text>
+            <Text style={styles.statNumber}>{selectedDateStats.completed}</Text>
             <Text style={styles.statLabel}>완료</Text>
           </View>
         </View>
 
-        {/* 습관 목록 */}
+        {/* 습관 목록 섹션 */}
         <View style={styles.habitsContainer}>
           {selectedDateHabits.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -371,7 +416,7 @@ const HomeScreen = () => {
               </Text>
               <TouchableOpacity
                 style={styles.createButton}
-                onPress={() => navigate.push('createRoutineScreen')}>
+                onPress={handleHabitCreate}>
                 <Text style={styles.createButtonText}>첫 번째 습관 만들기</Text>
               </TouchableOpacity>
             </View>
@@ -387,10 +432,10 @@ const HomeScreen = () => {
         </View>
       </ScrollView>
 
-      {/* 우하단 FAB 버튼 */}
+      {/* 플로팅 액션 버튼 */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => navigate.push('createRoutineScreen')}
+        onPress={handleHabitCreate}
         activeOpacity={0.8}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
@@ -487,39 +532,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 4,
   },
-  todaySection: {
-    paddingHorizontal: 16,
-    marginBottom: 100,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    marginBottom: 20,
-  },
-  addButton: {
-    backgroundColor: '#3498db',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
   habitItem: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -547,29 +559,19 @@ const styles = StyleSheet.create({
   habitInfo: {
     flex: 1,
   },
-  habitHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  habitEmoji: {
-    fontSize: 20,
-    marginRight: 8,
-  },
   habitName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2c3e50',
-    flex: 1,
+    marginBottom: 4,
+  },
+  habitCategory: {
+    fontSize: 12,
+    color: '#7f8c8d',
   },
   completedText: {
     textDecorationLine: 'line-through',
     color: '#7f8c8d',
-  },
-  streakText: {
-    fontSize: 12,
-    color: '#e67e22',
-    fontWeight: 'bold',
   },
   checkbox: {
     width: 24,
@@ -616,17 +618,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   editButton: {
-    width: 32,
-    height: 32,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 16,
     backgroundColor: '#f8f9fa',
-    alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#ecf0f1',
   },
   editButtonText: {
-    fontSize: 16,
+    fontSize: 12,
+    color: '#7f8c8d',
+    fontWeight: '600',
   },
   habitsContainer: {
     paddingHorizontal: 16,
@@ -637,6 +639,11 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     backgroundColor: '#fff',
     borderRadius: 12,
+    marginBottom: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#7f8c8d',
     marginBottom: 20,
   },
   createButton: {

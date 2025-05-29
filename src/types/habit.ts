@@ -1,7 +1,6 @@
 export interface IHabit {
   id: string;
   name: string;
-  emoji: string;
   frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
   customDays?: number[]; // 0-6 (일요일-토요일) - weekly에서 사용
   monthlyDays?: number[]; // 1-31 (매달 특정 일) - monthly에서 사용

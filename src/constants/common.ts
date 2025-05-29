@@ -9,11 +9,10 @@ export const WEEK_DAYS = [
   {label: '토', value: 6, fullName: '토요일'},
 ];
 
-export const WEEK_DAY_NAMES = WEEK_DAYS.map(day => day.fullName);
-export const WEEK_DAY_NAMES_SHORT = WEEK_DAYS.map(day => day.label);
-
-// 월 이름 상수
-export const MONTH_NAMES = [
+// 로케일 설정용 요일/월 이름
+const WEEK_DAY_NAMES = WEEK_DAYS.map(day => day.fullName);
+const WEEK_DAY_NAMES_SHORT = WEEK_DAYS.map(day => day.label);
+const MONTH_NAMES = [
   '1월',
   '2월',
   '3월',
@@ -30,12 +29,12 @@ export const MONTH_NAMES = [
 
 // 카테고리 상수
 export const HABIT_CATEGORIES = [
-  {key: 'health', label: '건강', emoji: '🍎', color: '#4CAF50'},
-  {key: 'exercise', label: '운동', emoji: '🏃', color: '#FF5722'},
-  {key: 'study', label: '공부', emoji: '📚', color: '#2196F3'},
-  {key: 'lifestyle', label: '생활', emoji: '🏠', color: '#9C27B0'},
-  {key: 'work', label: '업무', emoji: '💼', color: '#FF9800'},
-  {key: 'other', label: '기타', emoji: '⭐', color: '#607D8B'},
+  {key: 'health', label: '건강', color: '#4CAF50'},
+  {key: 'exercise', label: '운동', color: '#FF5722'},
+  {key: 'study', label: '공부', color: '#2196F3'},
+  {key: 'lifestyle', label: '생활', color: '#9C27B0'},
+  {key: 'work', label: '업무', color: '#FF9800'},
+  {key: 'other', label: '기타', color: '#607D8B'},
 ] as const;
 
 // 카테고리 색상 매핑
@@ -48,30 +47,6 @@ export const CATEGORY_COLORS = {
   other: '#607D8B',
 } as const;
 
-// 이모지 상수
-export const COMMON_EMOJIS = [
-  '💪',
-  '🏃',
-  '📚',
-  '💧',
-  '🧘',
-  '🍎',
-  '😴',
-  '🚶',
-  '🎯',
-  '✍️',
-  '🎵',
-  '🧽',
-  '🌱',
-  '☕',
-  '🎨',
-  '📱',
-  '💼',
-  '🏠',
-  '⭐',
-  '❤️',
-];
-
 // 빈도 타입 상수
 export const FREQUENCY_TYPES = {
   DAILY: 'daily',
@@ -83,22 +58,22 @@ export const FREQUENCY_TYPES = {
 // 빈도 옵션 상수
 export const FREQUENCY_OPTIONS = [
   {
-    key: FREQUENCY_TYPES.DAILY,
+    key: 'daily',
     label: '매일',
     description: '매일 실행하는 습관',
   },
   {
-    key: FREQUENCY_TYPES.WEEKLY,
+    key: 'weekly',
     label: '매주',
     description: '선택한 요일에만 실행',
   },
   {
-    key: FREQUENCY_TYPES.MONTHLY,
+    key: 'monthly',
     label: '매달',
     description: '매달 선택한 일에만 실행',
   },
   {
-    key: FREQUENCY_TYPES.CUSTOM,
+    key: 'custom',
     label: '맞춤',
     description: '특정 날짜들에만 실행',
   },
@@ -158,7 +133,7 @@ export const CALENDAR_THEME = {
   textDayHeaderFontSize: 14,
 };
 
-// 로케일 설정 상수
+// 로케일 설정 상수 (App.tsx에서 사용)
 export const LOCALE_CONFIG = {
   monthNames: MONTH_NAMES,
   monthNamesShort: MONTH_NAMES,
