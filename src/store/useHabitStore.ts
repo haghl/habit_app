@@ -6,10 +6,8 @@ import {STORAGE_KEYS} from '@/constants/common';
 
 interface IHabitStore {
   habits: IHabit[];
-  selectedDate: string;
   loading: boolean;
   // Actions
-  setSelectedDate: (date: string) => void;
   loadHabits: () => Promise<void>;
   addHabit: (
     habit: Omit<IHabit, 'id' | 'createdAt' | 'completedDates'>,
@@ -38,14 +36,7 @@ const HABITS_STORAGE_KEY = STORAGE_KEYS.HABITS;
 
 export const useHabitStore = create<IHabitStore>((set, get) => ({
   habits: [],
-  selectedDate: dayjs().format('YYYY-MM-DD'),
   loading: false,
-
-  setSelectedDate: (date: string) => {
-    console.log('📅 날짜 변경:', date);
-    set({selectedDate: date});
-  },
-
   loadHabits: async () => {
     console.log('📥 습관 로드 시작...');
     set({loading: true});
