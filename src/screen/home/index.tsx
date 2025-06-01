@@ -1,4 +1,8 @@
-import {CALENDAR_THEME, HABIT_CATEGORIES} from '@/constants/common';
+import {
+  CALENDAR_THEME,
+  CATEGORY_COLORS,
+  HABIT_CATEGORIES,
+} from '@/constants/common';
 import {useHabitStore} from '@/store/useHabitStore';
 import useNavigate from '@hooks/logic/useNavigate';
 import dayjs from 'dayjs';
@@ -21,15 +25,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
  * @returns 해당 카테고리의 색상 코드
  */
 const getCategoryColor = (category: string): string => {
-  const categoryColors: {[key: string]: string} = {
-    health: '#4CAF50',
-    exercise: '#FF5722',
-    study: '#2196F3',
-    lifestyle: '#9C27B0',
-    work: '#FF9800',
-    other: '#607D8B',
-  };
-  return categoryColors[category] || '#607D8B';
+  return CATEGORY_COLORS[category] || '#607D8B';
 };
 
 const HomeScreen = () => {
@@ -264,7 +260,7 @@ const HomeScreen = () => {
         Alert.alert('오류', '습관 상태 변경에 실패했습니다.');
       }
     },
-    [toggleHabitCompletion, selectedDate],
+    [selectedDate],
   );
 
   /**

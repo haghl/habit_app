@@ -38,14 +38,14 @@ export const HABIT_CATEGORIES = [
 ] as const;
 
 // 카테고리 색상 매핑
-export const CATEGORY_COLORS = {
+export const CATEGORY_COLORS: {[key: string]: string} = {
   health: '#4CAF50',
   exercise: '#FF5722',
   study: '#2196F3',
   lifestyle: '#9C27B0',
   work: '#FF9800',
   other: '#607D8B',
-} as const;
+};
 
 // 빈도 타입 상수
 export const FREQUENCY_TYPES = {

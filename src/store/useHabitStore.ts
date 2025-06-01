@@ -183,6 +183,7 @@ export const useHabitStore = create<IHabitStore>((set, get) => ({
     }
   },
 
+  // 레거시
   getHabitsForDate: (date: string) => {
     const {habits} = get();
     const dayOfWeek = dayjs(date).day();
@@ -207,6 +208,7 @@ export const useHabitStore = create<IHabitStore>((set, get) => ({
     return filteredHabits;
   },
 
+  // 레거시
   getDayProgress: (date: string) => {
     const {getHabitsForDate} = get();
     const dayHabits = getHabitsForDate(date);
@@ -227,6 +229,7 @@ export const useHabitStore = create<IHabitStore>((set, get) => ({
     return progress;
   },
 
+  // 레거시
   getHabitStreak: (habitId: string) => {
     const {habits} = get();
     const habit = habits.find(h => h.id === habitId);
@@ -247,6 +250,7 @@ export const useHabitStore = create<IHabitStore>((set, get) => ({
     return streak;
   },
 
+  // 레거시
   getMonthlyProgress: (year: number, month: number) => {
     const {getDayProgress} = get();
     const daysInMonth = dayjs(`${year}-${month}`).daysInMonth();
@@ -260,6 +264,7 @@ export const useHabitStore = create<IHabitStore>((set, get) => ({
     return monthlyProgress;
   },
 
+  // 레거시
   clearAllHabits: async () => {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.HABITS);
